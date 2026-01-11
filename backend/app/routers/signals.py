@@ -184,6 +184,28 @@ async def scan_spectrum(
         )
 
     try:
+        # Parse frequencies to calculate appropriate timeout
+        def parse_freq(freq_str: str) -> float:
+            """Parse frequency string like '433M' or '1.5G' to Hz."""
+            freq_str = freq_str.upper().strip()
+            multipliers = {'K': 1e3, 'M': 1e6, 'G': 1e9}
+            for suffix, mult in multipliers.items():
+                if freq_str.endswith(suffix):
+                    return float(freq_str[:-1]) * mult
+            return float(freq_str)
+
+        start_hz = parse_freq(start_freq)
+        end_hz = parse_freq(end_freq)
+        span_mhz = (end_hz - start_hz) / 1e6
+
+        # RTL-SDR samples ~2MHz at a time, needs to hop for wider scans
+        # Estimate: (span / 2MHz) * integration + overhead
+        # Add generous buffer for wide scans
+        estimated_hops = max(1, span_mhz / 2)
+        timeout_seconds = int(estimated_hops * integration + 60)
+        # Cap at 10 minutes max
+        timeout_seconds = min(timeout_seconds, 600)
+
         # Run rtl_power
         cmd = [
             "rtl_power",
@@ -202,7 +224,7 @@ async def scan_spectrum(
 
         stdout, stderr = await asyncio.wait_for(
             process.communicate(),
-            timeout=integration + 30
+            timeout=timeout_seconds
         )
 
         # Parse rtl_power output
