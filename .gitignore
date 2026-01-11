@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+*.local
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+
+# Runtime data
+data/
+*.pid
+
+# OS
+.DS_Store
+Thumbs.db
+
+# rtl_433 build artifacts
+rtl_433/build/
+rtl_433/CMakeCache.txt
+rtl_433/CMakeFiles/
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+rtl_433/
