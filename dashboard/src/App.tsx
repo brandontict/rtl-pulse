@@ -1,5 +1,5 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
-import { Radio, LayoutDashboard, History, Settings, Activity, Cpu, Waves, Terminal, BarChart3 } from 'lucide-react'
+import { Radio, LayoutDashboard, History, Settings, Cpu, Waves, Terminal, BarChart3, Code } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import HistoryPage from './pages/History'
 import Devices from './pages/Devices'
@@ -8,6 +8,7 @@ import ConfigurationPage from './pages/Configuration'
 import Signals from './pages/Signals'
 import ConsoleLogs from './pages/ConsoleLogs'
 import SpectrumScanner from './pages/SpectrumScanner'
+import Decoding from './pages/Decoding'
 
 function App() {
   const location = useLocation()
@@ -16,6 +17,7 @@ function App() {
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/signals', label: 'Signals', icon: Waves },
     { path: '/spectrum', label: 'Spectrum', icon: BarChart3 },
+    { path: '/decoding', label: 'Decode', icon: Code },
     { path: '/devices', label: 'Devices', icon: Radio },
     { path: '/logs', label: 'Console', icon: Terminal },
     { path: '/config', label: 'Config', icon: Cpu },
@@ -28,8 +30,10 @@ function App() {
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Activity className="h-8 w-8 text-primary-600" />
-            <h1 className="text-xl font-bold text-gray-900">RTL-SDR Dashboard</h1>
+            <img src="/logo.jpg" alt="Logo" className="h-10 w-10 rounded-lg object-cover pulse-icon" />
+            <h1 className="text-2xl pulse-text">
+              RTL <span className="text-green-500">Pulse</span>
+            </h1>
           </div>
           <nav className="flex space-x-1">
             {navItems.map(({ path, label, icon: Icon }) => (
@@ -56,6 +60,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/signals" element={<Signals />} />
           <Route path="/spectrum" element={<SpectrumScanner />} />
+          <Route path="/decoding" element={<Decoding />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/devices" element={<Devices />} />
           <Route path="/logs" element={<ConsoleLogs />} />

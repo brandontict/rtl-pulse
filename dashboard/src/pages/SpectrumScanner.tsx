@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Radio,
   Play,
@@ -10,7 +10,11 @@ import {
   Wifi,
   WifiOff,
   Settings2,
+  AlertTriangle,
+  Power,
+  Sliders,
 } from 'lucide-react'
+import FrequencyTuner from '../components/FrequencyTuner'
 
 interface SpectrumPoint {
   frequency: number
@@ -92,9 +96,18 @@ export default function SpectrumScanner() {
   const [liveGain, setLiveGain] = useState(40)
   const [liveAveraging, setLiveAveraging] = useState(4)
 
+  // RTL-433 state
+  const [rtl433Running, setRtl433Running] = useState(false)
+  const [stoppingRtl433, setStoppingRtl433] = useState(false)
+
+  // Tuner state
+  const [showTuner, setShowTuner] = useState(false)
+  const [tunerFreq, setTunerFreq] = useState(433.92)
+
   useEffect(() => {
     loadPresets()
     checkLiveStatus()
+    checkRtl433Status()
   }, [])
 
   // Cleanup WebSocket on unmount
@@ -127,6 +140,43 @@ export default function SpectrumScanner() {
     }
   }
 
+  async function checkRtl433Status() {
+    try {
+      const response = await fetch(`${API_BASE}/system/rtl433/status`)
+      const data = await response.json()
+      setRtl433Running(data.running)
+    } catch (err) {
+      console.error('Failed to check rtl_433 status:', err)
+    }
+  }
+
+  async function stopRtl433() {
+    setStoppingRtl433(true)
+    setError(null)
+    try {
+      const response = await fetch(`${API_BASE}/system/rtl433/stop`, { method: 'POST' })
+      if (!response.ok) {
+        throw new Error('Failed to stop rtl_433')
+      }
+      setRtl433Running(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to stop rtl_433')
+    } finally {
+      setStoppingRtl433(false)
+    }
+  }
+
+  async function startRtl433() {
+    try {
+      const response = await fetch(`${API_BASE}/system/rtl433/start`, { method: 'POST' })
+      if (response.ok) {
+        setRtl433Running(true)
+      }
+    } catch (err) {
+      console.error('Failed to start rtl_433:', err)
+    }
+  }
+
   function applyPreset(preset: Preset) {
     setStartFreq(preset.start)
     setEndFreq(preset.end)
@@ -137,6 +187,34 @@ export default function SpectrumScanner() {
     const endMhz = parseFloat(preset.end.replace('M', ''))
     const centerMhz = (startMhz + endMhz) / 2
     setLiveCenterFreq(`${centerMhz}M`)
+    setTunerFreq(centerMhz)
+  }
+
+  // Convert presets to tuner format
+  function getTunerPresets() {
+    return presets.map(p => {
+      const startMhz = parseFloat(p.start.replace('M', ''))
+      const endMhz = parseFloat(p.end.replace('M', ''))
+      return {
+        name: p.name,
+        frequency: (startMhz + endMhz) / 2,
+        category: p.category,
+      }
+    })
+  }
+
+  // Handle tuner frequency change
+  function handleTunerChange(freq: number) {
+    setTunerFreq(freq)
+    setLiveCenterFreq(`${freq}M`)
+  }
+
+  // Start live with current tuner frequency
+  async function startLiveFromTuner() {
+    await stopRtl433()
+    setLiveCenterFreq(`${tunerFreq}M`)
+    // Small delay to ensure rtl433 is stopped
+    setTimeout(() => startLive(), 500)
   }
 
   // ===== SCAN MODE FUNCTIONS =====
@@ -327,34 +405,80 @@ export default function SpectrumScanner() {
         </div>
 
         {/* Mode Toggle */}
-        <div className="flex items-center bg-gray-100 rounded-lg p-1">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setMode('scan')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                mode === 'scan'
+                  ? 'bg-white shadow text-blue-700'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Scan Mode
+            </button>
+            <button
+              onClick={() => setMode('live')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center ${
+                mode === 'live'
+                  ? 'bg-white shadow text-green-700'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {liveConnected ? (
+                <Wifi className="h-4 w-4 mr-1.5 text-green-500" />
+              ) : (
+                <WifiOff className="h-4 w-4 mr-1.5" />
+              )}
+              Live Mode
+            </button>
+          </div>
+
+          {/* Tuner Toggle */}
           <button
-            onClick={() => setMode('scan')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              mode === 'scan'
-                ? 'bg-white shadow text-blue-700'
-                : 'text-gray-600 hover:text-gray-900'
+            onClick={() => setShowTuner(!showTuner)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center ${
+              showTuner
+                ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            Scan Mode
-          </button>
-          <button
-            onClick={() => setMode('live')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center ${
-              mode === 'live'
-                ? 'bg-white shadow text-green-700'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            {liveConnected ? (
-              <Wifi className="h-4 w-4 mr-1.5 text-green-500" />
-            ) : (
-              <WifiOff className="h-4 w-4 mr-1.5" />
-            )}
-            Live Mode
+            <Sliders className="h-4 w-4 mr-1.5" />
+            Radio Tuner
           </button>
         </div>
       </div>
+
+      {/* Frequency Tuner (Radio Style) */}
+      {showTuner && (
+        <FrequencyTuner
+          frequency={tunerFreq}
+          onFrequencyChange={handleTunerChange}
+          minFreq={24}
+          maxFreq={1700}
+          step={0.1}
+          presets={getTunerPresets()}
+          isPlaying={liveRunning}
+          onPlayStop={() => {
+            if (liveRunning) {
+              stopLive()
+            } else if (!rtl433Running) {
+              startLive()
+            } else {
+              startLiveFromTuner()
+            }
+          }}
+          onPresetSelect={(preset) => {
+            // Find original preset and apply it
+            const original = presets.find(p => {
+              const startMhz = parseFloat(p.start.replace('M', ''))
+              const endMhz = parseFloat(p.end.replace('M', ''))
+              return Math.abs((startMhz + endMhz) / 2 - preset.frequency) < 0.01
+            })
+            if (original) applyPreset(original)
+          }}
+        />
+      )}
 
       {/* Presets */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -534,6 +658,36 @@ export default function SpectrumScanner() {
       {/* ===== LIVE MODE CONTROLS ===== */}
       {mode === 'live' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          {/* RTL-433 Warning Banner */}
+          {rtl433Running && !liveRunning && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+              <div className="flex items-center text-amber-800">
+                <AlertTriangle className="h-5 w-5 mr-2 text-amber-500" />
+                <div>
+                  <span className="font-medium">rtl_433 is running</span>
+                  <span className="text-sm ml-2 text-amber-600">- Stop it to use Live spectrum mode</span>
+                </div>
+              </div>
+              <button
+                onClick={stopRtl433}
+                disabled={stoppingRtl433}
+                className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400"
+              >
+                {stoppingRtl433 ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-1.5 animate-spin" />
+                    Stopping...
+                  </>
+                ) : (
+                  <>
+                    <Power className="h-4 w-4 mr-1.5" />
+                    Stop rtl_433
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-700 flex items-center">
               <Settings2 className="h-4 w-4 mr-2" />
@@ -619,18 +773,39 @@ export default function SpectrumScanner() {
             {!liveRunning ? (
               <button
                 onClick={startLive}
-                className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+                disabled={rtl433Running}
+                className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white ${
+                  rtl433Running
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
+                title={rtl433Running ? 'Stop rtl_433 first' : 'Start live spectrum'}
               >
                 <Play className="h-4 w-4 mr-2" />
                 Start Live
               </button>
             ) : (
               <button
-                onClick={stopLive}
+                onClick={async () => {
+                  await stopLive()
+                  // Offer to restart rtl_433
+                }}
                 className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700"
               >
                 <Square className="h-4 w-4 mr-2" />
                 Stop Live
+              </button>
+            )}
+
+            {/* Restart rtl_433 button after stopping live */}
+            {!liveRunning && !rtl433Running && (
+              <button
+                onClick={startRtl433}
+                className="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300"
+                title="Resume sensor listening"
+              >
+                <Power className="h-4 w-4 mr-1.5 text-green-600" />
+                Start rtl_433
               </button>
             )}
 

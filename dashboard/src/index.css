@@ -32,3 +32,42 @@ body {
     @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
   }
 }
+
+/* RTL Pulse branding animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    text-shadow:
+      0 0 4px rgba(34, 197, 94, 0.4),
+      0 0 8px rgba(34, 197, 94, 0.3),
+      0 0 12px rgba(34, 197, 94, 0.2);
+    color: #166534;
+  }
+  50% {
+    text-shadow:
+      0 0 8px rgba(34, 197, 94, 0.8),
+      0 0 16px rgba(34, 197, 94, 0.6),
+      0 0 24px rgba(34, 197, 94, 0.4),
+      0 0 32px rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+  }
+}
+
+@keyframes signal-wave {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.pulse-text {
+  animation: pulse-glow 2s ease-in-out infinite;
+  font-weight: 700;
+}
+
+.pulse-icon {
+  animation: signal-wave 2s ease-in-out infinite;
+}

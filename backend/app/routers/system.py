@@ -69,6 +69,15 @@ async def get_config():
     }
 
 
+@router.get("/rtl433/status")
+async def get_rtl433_status():
+    """Get rtl_433 process status."""
+    return {
+        "running": rtl_manager.is_running,
+        "pid": rtl_manager.process.pid if rtl_manager.process else None,
+    }
+
+
 @router.post("/rtl433/start")
 async def start_rtl433():
     """Start the rtl_433 process."""

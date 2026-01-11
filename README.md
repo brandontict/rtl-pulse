@@ -1,234 +1,192 @@
-# RTL-SDR Dashboard & Signal Analysis Platform
+# RTL-SDR Dashboard
 
-A multi-component system for RTL-SDR signal reception, decoding, visualization, and home automation integration.
+Real-time RF signal monitoring, spectrum analysis, and sensor decoding platform for RTL-SDR devices.
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.9+-green.svg)
+![Node](https://img.shields.io/badge/node-18+-green.svg)
 
 ## Features
 
-- **Real-time Sensor Monitoring** - Live temperature, humidity, and other sensor data
-- **React Dashboard** - Modern web interface for sensor visualization and device management
-- **Vue Signal Analyzer** - Exploratory tool for signal analysis and protocol discovery
-- **Home Assistant Integration** - MQTT auto-discovery for seamless HA integration
-- **Python FastAPI Backend** - WebSocket + REST API for data access
-
-## Hardware
-
-- **Supported**: Nooelec NESDR (RTL2832U + R820T) and other RTL-SDR dongles
-- **Frequency**: 433.92 MHz (configurable for other frequencies)
-
-## Architecture
-
-```
-┌──────────────────┐     ┌──────────────┐     ┌─────────────────┐
-│  RTL-SDR Dongle  │────▶│   rtl_433    │────▶│  Python Backend │
-└──────────────────┘     └──────────────┘     └────────┬────────┘
-                                                       │
-                    ┌──────────────────────────────────┼──────────────────────────────────┐
-                    │                                  │                                  │
-                    ▼                                  ▼                                  ▼
-           ┌────────────────┐               ┌─────────────────┐              ┌────────────────────┐
-           │ React Dashboard│               │ Vue Analyzer    │              │   Home Assistant   │
-           │  (Port 3000)   │               │   (Port 3001)   │              │   (MQTT)           │
-           └────────────────┘               └─────────────────┘              └────────────────────┘
-```
+| Feature | Description |
+|---------|-------------|
+| **Live Decoding** | 200+ wireless protocols via rtl_433 |
+| **Spectrum Scanner** | Sweep frequency ranges with rtl_power |
+| **Live FFT** | Real-time spectrum via WebSocket |
+| **Radio Tuner** | Car radio-style dial with scroll-to-tune |
+| **Signal Decoder** | Protocol analysis + raw JSON inspection |
+| **Home Assistant** | MQTT auto-discovery integration |
+| **Dual Frontend** | React dashboard + Vue analyzer |
 
 ## Quick Start
 
-### 1. Install System Dependencies
-
 ```bash
-sudo apt update
-sudo apt install -y cmake build-essential librtlsdr-dev libusb-1.0-0-dev \
-    pkg-config python3 python3-pip python3-venv nodejs npm mosquitto mosquitto-clients
-```
-
-### 2. Run Setup
-
-```bash
-cd /home/t3ch/Documents/project-rtl-sdr
-sudo ./scripts/setup.sh
-```
-
-This will:
-- Build rtl_433 from source
-- Install udev rules for the RTL-SDR device
-- Blacklist DVB-T kernel modules
-- Set up Python virtual environment
-- Install Node.js dependencies
-
-### 3. Reboot (Required for udev/blacklist changes)
-
-```bash
-sudo reboot
-```
-
-### 4. Start Services
-
-```bash
+git clone https://github.com/yourusername/rtl-sdr-dashboard.git
+cd rtl-sdr-dashboard
+./scripts/setup.sh
 ./scripts/start.sh
 ```
 
-### 5. Access the Dashboards
+Open http://localhost:3000
 
-- **React Dashboard**: http://localhost:3000
-- **Vue Signal Analyzer**: http://localhost:3001
-- **API Documentation**: http://localhost:8000/docs
+## Requirements
 
-## Project Structure
+| Component | Version |
+|-----------|---------|
+| RTL-SDR | RTL2832U-based dongle |
+| Python | 3.9+ |
+| Node.js | 18+ |
+| OS | Linux (Debian/Ubuntu/Kali) |
 
+## Installation
+
+```bash
+# System dependencies
+sudo apt install -y rtl-sdr librtlsdr-dev python3-venv nodejs npm mosquitto
+
+# Build rtl_433
+cd rtl_433 && mkdir build && cd build && cmake .. && make -j4
+
+# Backend
+cd backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+
+# Frontend
+cd dashboard && npm install
+cd ../signal-analyzer && npm install
 ```
-project-rtl-sdr/
-├── rtl_433/                # RTL-433 source code
-├── backend/                # Python FastAPI backend
-│   ├── app/
-│   │   ├── main.py        # Application entry point
-│   │   ├── config.py      # Configuration
-│   │   ├── database.py    # SQLite database layer
-│   │   ├── rtl_manager.py # rtl_433 process control
-│   │   ├── mqtt_client.py # MQTT/HA integration
-│   │   ├── websocket.py   # WebSocket handler
-│   │   └── routers/       # API endpoints
-│   └── requirements.txt
-├── dashboard/              # React dashboard
-│   └── src/
-│       ├── components/    # UI components
-│       ├── pages/         # Page views
-│       ├── hooks/         # React hooks
-│       └── services/      # API services
-├── signal-analyzer/        # Vue signal analyzer
-│   └── src/
-│       ├── views/         # Page views
-│       └── composables/   # Vue composables
-├── config/
-│   ├── rtl_433.conf       # RTL-433 configuration
-│   ├── mosquitto.conf     # MQTT broker config
-│   └── 99-rtl-sdr.rules   # udev rules
-├── scripts/
-│   ├── setup.sh           # Initial setup
-│   ├── start.sh           # Start all services
-│   ├── stop.sh            # Stop all services
-│   ├── status.sh          # Check service status
-│   └── build_rtl433.sh    # Build rtl_433
-└── data/                   # Runtime data (logs, database, PIDs)
+
+## Usage
+
+### Services
+
+```bash
+./scripts/start.sh   # Start all
+./scripts/stop.sh    # Stop all
+./scripts/status.sh  # Check status
 ```
+
+### Access Points
+
+| Service | URL |
+|---------|-----|
+| Dashboard | http://localhost:3000 |
+| Analyzer | http://localhost:3001 |
+| API | http://localhost:8000 |
+| Docs | http://localhost:8000/docs |
+
+### Dashboard Pages
+
+| Page | Function |
+|------|----------|
+| Dashboard | Live sensor readings |
+| Signals | Protocol/frequency config |
+| Spectrum | Scan + Live FFT modes |
+| Decode | Real-time signal decoder |
+| Devices | Device management |
+| Console | System logs |
+| Config | rtl_433 editor |
+
+## Spectrum Modes
+
+**Scan** - Sweep frequency range
+```
+432M → 436M @ 100kHz bins, 5s integration
+```
+
+**Live** - Real-time FFT display
+```
+Center: 433.92MHz, BW: 2.048MHz, FFT: 1024
+```
+
+**Tuner** - Scroll like car radio
+```
+Mouse wheel: ±0.1 MHz
+Skip buttons: Jump presets
+```
+
+## API Reference
+
+### System
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/system/health` | Health check |
+| GET | `/api/v1/system/rtl433/status` | Process status |
+| POST | `/api/v1/system/rtl433/start` | Start rtl_433 |
+| POST | `/api/v1/system/rtl433/stop` | Stop rtl_433 |
+
+### Spectrum
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/spectrum/live/status` | FFT status |
+| POST | `/api/v1/spectrum/live/start` | Start FFT |
+| POST | `/api/v1/spectrum/live/stop` | Stop FFT |
+| WS | `/api/v1/spectrum/live/ws` | FFT stream |
+| POST | `/api/v1/signals/spectrum/scan` | Run scan |
+
+### Sensors
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/sensors/` | List readings |
+| WS | `/ws` | Live readings |
+
+## Frequency Presets
+
+| Band | Range | Use Case |
+|------|-------|----------|
+| ISM 315 | 314-316 MHz | US car fobs |
+| ISM 433 | 432-435 MHz | EU sensors |
+| ISM 868 | 867-869 MHz | EU car fobs |
+| ISM 915 | 902-928 MHz | US LoRa |
+| FM | 88-108 MHz | Broadcast |
+| Air | 118-137 MHz | Aircraft |
+| Marine | 156-162 MHz | VHF |
+| Weather | 162-163 MHz | NOAA |
 
 ## Configuration
 
-### RTL-433 (`config/rtl_433.conf`)
-
+### rtl_433.conf
 ```
 frequency 433.92M
-sample_rate 1024k
 gain 40
 output json
-protocol 2    # Rubicson Temperature
-protocol 3    # Prologue Temperature/Humidity
-protocol 12   # Oregon Scientific
+output mqtt://localhost:1883
+protocol 1-200
 ```
 
-### Environment Variables
-
-Create a `.env` file in `backend/` to override defaults:
-
-```
+### Environment
+```bash
 MQTT_BROKER=localhost
 MQTT_PORT=1883
 DATABASE_URL=sqlite:///./data/sensors.db
 ```
 
-## Home Assistant Integration
-
-1. Ensure Mosquitto is running and HA is configured to use MQTT
-2. Sensors will auto-discover via MQTT discovery protocol
-3. Entities will appear as `sensor.rtl_sdr_*` in Home Assistant
-
-### MQTT Topics
-
-- `rtl_433/events` - All sensor events
-- `rtl_433/devices/{model}_{id}` - Device-specific readings
-- `homeassistant/sensor/*/config` - HA discovery configs
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/sensors/` | GET | Get sensor readings |
-| `/api/v1/sensors/latest` | GET | Get latest reading per device |
-| `/api/v1/devices/` | GET | List all devices |
-| `/api/v1/devices/{id}` | PATCH | Update device settings |
-| `/api/v1/system/status` | GET | System status |
-| `/api/v1/system/rtl433/start` | POST | Start rtl_433 |
-| `/api/v1/system/rtl433/stop` | POST | Stop rtl_433 |
-| `/api/v1/signals/analyze` | POST | Run signal analysis |
-| `/ws` | WebSocket | Real-time updates |
-
 ## Troubleshooting
 
-### RTL-SDR Device Not Detected
+| Issue | Solution |
+|-------|----------|
+| Device not found | `sudo rmmod dvb_usb_rtl28xxu` |
+| Permission denied | `sudo usermod -aG plugdev $USER` |
+| Port in use | `./scripts/stop.sh` |
+| No signals | Check antenna, try gain 20-50 |
 
-```bash
-# Check if device is connected
-lsusb | grep -i rtl
+## Project Structure
 
-# Verify udev rules are loaded
-udevadm info -a -n /dev/bus/usb/*/
-
-# Ensure user is in plugdev group
-groups $USER
-sudo usermod -aG plugdev $USER
 ```
-
-### DVB-T Module Conflict
-
-```bash
-# Check if DVB-T module is loaded
-lsmod | grep dvb
-
-# Blacklist it
-echo "blacklist dvb_usb_rtl28xxu" | sudo tee /etc/modprobe.d/rtl-sdr-blacklist.conf
-sudo modprobe -r dvb_usb_rtl28xxu
-```
-
-### No Signals Detected
-
-- Ensure sensors are within range
-- Try different gain settings: `gain 20`, `gain 40`, `gain 50`
-- Check antenna connection
-- Verify correct frequency for your region
-
-## Scripts
-
-| Script | Description |
-|--------|-------------|
-| `./scripts/setup.sh` | Full initial setup |
-| `./scripts/setup.sh build` | Build rtl_433 only |
-| `./scripts/start.sh` | Start all services |
-| `./scripts/stop.sh` | Stop all services |
-| `./scripts/status.sh` | Check service status |
-
-## Development
-
-### Backend
-
-```bash
-cd backend
-source venv/bin/activate
-uvicorn app.main:app --reload
-```
-
-### Dashboard
-
-```bash
-cd dashboard
-npm run dev
-```
-
-### Signal Analyzer
-
-```bash
-cd signal-analyzer
-npm run dev
+project-rtl-sdr/
+├── backend/          # FastAPI + WebSocket
+├── dashboard/        # React frontend
+├── signal-analyzer/  # Vue frontend
+├── rtl_433/          # Signal decoder
+├── config/           # Configuration files
+├── scripts/          # Management scripts
+└── data/             # Runtime data
 ```
 
 ## License
 
-MIT License
+MIT License - See [LICENSE](LICENSE)
+
+## See Also
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - System design & flow charts
+- [rtl_433](https://github.com/merbanan/rtl_433) - Protocol decoder
