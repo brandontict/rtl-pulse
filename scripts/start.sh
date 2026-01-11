@@ -141,8 +141,8 @@ case "${1:-all}" in
     all)
         start_mosquitto
         sleep 1
-        start_rtl433
-        sleep 2
+        # Note: rtl_433 is managed by the backend (auto-starts on demand)
+        # Use './scripts/start.sh rtl433' for manual control
         start_backend
         start_dashboard
         start_analyzer
