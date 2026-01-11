@@ -1,5 +1,7 @@
 """WebSocket manager for real-time data streaming to frontend."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging

@@ -1,8 +1,11 @@
 """Application configuration using Pydantic settings."""
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
 from functools import lru_cache
+from typing import Optional
 
 from pydantic_settings import BaseSettings
 

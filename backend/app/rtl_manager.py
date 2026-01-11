@@ -1,5 +1,7 @@
 """RTL-433 process manager for subprocess control and data parsing."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging

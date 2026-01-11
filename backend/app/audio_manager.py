@@ -1,5 +1,7 @@
 """Audio streaming manager using rtl_fm."""
 
+from __future__ import annotations
+
 import asyncio
 import subprocess
 import shutil

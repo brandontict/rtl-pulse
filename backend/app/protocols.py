@@ -1,5 +1,7 @@
 """RTL-433 Protocol definitions and program flags."""
 
+from __future__ import annotations
+
 from typing import List, Dict, Any
 
 # Protocol categories for filtering

@@ -1,5 +1,7 @@
 """Device management API endpoints."""
 
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 

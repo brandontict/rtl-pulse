@@ -1,5 +1,7 @@
 """MQTT client for Home Assistant integration with auto-discovery."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging

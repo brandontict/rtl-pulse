@@ -1,5 +1,7 @@
 """FastAPI application entry point for RTL-SDR Dashboard."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
