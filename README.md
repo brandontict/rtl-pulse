@@ -1,6 +1,10 @@
 # RTL-SDR Dashboard
 
-Real-time RF signal monitoring, spectrum analysis, and sensor decoding platform for RTL-SDR devices.
+Real-time RF signal monitoring, spectrum analysis, and sensor decoding platform for RTL-SDR devices on the Realtek RTL2832 chipset. 
+
+I had bought my self a RTL2832 Dongle , Was bored and this happened !
+
+#BASED on RTL_433 . Would not be possible without https://github.com/merbanan/rtl_433 .
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.9+-green.svg)
@@ -189,4 +193,4 @@ MIT License - See [LICENSE](LICENSE)
 ## See Also
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System design & flow charts
-- [rtl_433](https://github.com/merbanan/rtl_433) - Protocol decoder
+- [rtl_433](https://github.com/merbanan/rtl_433) - Protocol decoder - Lots of info and Listed Device Protocols on their Github .
