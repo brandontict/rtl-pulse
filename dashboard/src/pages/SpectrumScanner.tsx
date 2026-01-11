@@ -6,7 +6,6 @@ import {
   Zap,
   RefreshCw,
   Activity,
-  Volume2,
   Wifi,
   WifiOff,
   Settings2,
@@ -19,6 +18,16 @@ import {
   ChevronDown,
   ChevronUp,
   Signal,
+  X,
+  Info,
+  MapPin,
+  Tag,
+  Waves,
+  Car,
+  Home,
+  Shield,
+  Gauge,
+  CloudRain,
 } from 'lucide-react'
 import FrequencyTuner from '../components/FrequencyTuner'
 
@@ -105,7 +114,7 @@ export default function SpectrumScanner() {
   const [liveConnected, setLiveConnected] = useState(false)
   const [liveRunning, setLiveRunning] = useState(false)
   const [liveSpectrum, setLiveSpectrum] = useState<LiveSpectrum | null>(null)
-  const [liveStatus, setLiveStatus] = useState<LiveStatus | null>(null)
+  const [, setLiveStatus] = useState<LiveStatus | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
   // Live parameters
@@ -130,6 +139,10 @@ export default function SpectrumScanner() {
   const decodeWsRef = useRef<WebSocket | null>(null)
   const signalIdRef = useRef(0)
   const maxDecodedSignals = 50
+
+  // Signal detail modal state
+  const [selectedPeak, setSelectedPeak] = useState<Peak | null>(null)
+  const [showSignalModal, setShowSignalModal] = useState(false)
 
   useEffect(() => {
     loadPresets()
@@ -476,6 +489,238 @@ export default function SpectrumScanner() {
       const y = chartHeight - padding - ((peak.power - minPower) / powerRange) * (chartHeight - 2 * padding)
       return { x, y, freq: peak.frequency, power: peak.power }
     })
+  }
+
+  // Get detailed signal info based on frequency
+  function getSignalInfo(freqMHz: number) {
+    const info = {
+      band: '',
+      region: '',
+      category: '',
+      icon: Radio,
+      color: 'gray',
+      commonUses: [] as string[],
+      protocols: [] as string[],
+      notes: '',
+    }
+
+    // 300-320 MHz range
+    if (freqMHz >= 300 && freqMHz < 320) {
+      info.band = '300-320 MHz'
+      info.region = 'North America / Asia'
+      info.category = 'Car Keyfobs & Garage'
+      info.icon = Car
+      info.color = 'purple'
+      info.commonUses = [
+        'LiftMaster/Chamberlain garage doors (303.875 MHz)',
+        'Toyota/Lexus key fobs (310 MHz, 315 MHz)',
+        'Honda key fobs (314.35 MHz)',
+        'US automotive remotes',
+      ]
+      info.protocols = ['Keeloq', 'Fixed code', 'Security+ 2.0']
+      info.notes = 'Most modern car fobs use rolling codes (Keeloq) which cannot be replayed.'
+    }
+    // 315 MHz (US car remotes)
+    else if (freqMHz >= 314 && freqMHz < 316) {
+      info.band = '315 MHz ISM'
+      info.region = 'North America'
+      info.category = 'US Car Keyfobs'
+      info.icon = Car
+      info.color = 'purple'
+      info.commonUses = [
+        'Ford, GM, Chrysler key fobs',
+        'Toyota, Honda, Nissan (US models)',
+        'TPMS sensors (tire pressure)',
+        'Garage door openers',
+      ]
+      info.protocols = ['Keeloq', 'Rolling code', 'TPMS FSK/ASK']
+      info.notes = 'Primary frequency for US automotive remotes. TPMS transmits every 60 seconds while driving.'
+    }
+    // 345 MHz (Security systems)
+    else if (freqMHz >= 344 && freqMHz < 346) {
+      info.band = '345 MHz'
+      info.region = 'North America'
+      info.category = 'Security Systems'
+      info.icon = Shield
+      info.color = 'red'
+      info.commonUses = [
+        'Honeywell security sensors',
+        '2GIG security panels',
+        'Door/window sensors',
+        'Motion detectors',
+      ]
+      info.protocols = ['Honeywell 5800', '2GIG sensors']
+      info.notes = 'Used by professional security monitoring systems. Sensors transmit on open/close events.'
+    }
+    // 390 MHz
+    else if (freqMHz >= 389 && freqMHz < 391) {
+      info.band = '390 MHz'
+      info.region = 'Various'
+      info.category = 'Garage & Car'
+      info.icon = Home
+      info.color = 'blue'
+      info.commonUses = [
+        'Older Security+ garage doors',
+        'Some automotive remotes',
+        'Industrial controls',
+      ]
+      info.protocols = ['Security+', 'Fixed code']
+      info.notes = 'Less common today, mostly legacy systems.'
+    }
+    // 418 MHz
+    else if (freqMHz >= 417 && freqMHz < 419) {
+      info.band = '418 MHz'
+      info.region = 'North America'
+      info.category = 'Industrial & Sensors'
+      info.icon = Gauge
+      info.color = 'orange'
+      info.commonUses = [
+        'Industrial sensors',
+        'Specialized weather stations',
+        'Medical devices',
+      ]
+      info.protocols = ['Various proprietary']
+      info.notes = 'Licensed and unlicensed uses in this band.'
+    }
+    // 433 MHz (EU/Asia ISM)
+    else if (freqMHz >= 432 && freqMHz < 436) {
+      info.band = '433.92 MHz ISM'
+      info.region = 'Europe / Asia / Worldwide'
+      info.category = 'ISM Band - Multi-use'
+      info.icon = Waves
+      info.color = 'green'
+      info.commonUses = [
+        'European car key fobs',
+        'Weather stations (Acurite, Lacrosse)',
+        'Wireless doorbells',
+        'IoT sensors',
+        'Tire pressure monitors (TPMS)',
+        'Garage door openers',
+      ]
+      info.protocols = [
+        'Acurite', 'Lacrosse', 'Oregon Scientific',
+        'Nexus-TH', 'Fine Offset', 'Keeloq'
+      ]
+      info.notes = 'Most popular ISM frequency worldwide. Very active band with many device types.'
+    }
+    // 868 MHz (EU)
+    else if (freqMHz >= 867 && freqMHz < 870) {
+      info.band = '868 MHz ISM'
+      info.region = 'Europe'
+      info.category = 'EU Smart Home & Car'
+      info.icon = Home
+      info.color = 'blue'
+      info.commonUses = [
+        'BMW, Mercedes, Audi key fobs (newer)',
+        'Smart home devices (Z-Wave EU)',
+        'Utility meters',
+        'LoRa devices',
+      ]
+      info.protocols = ['Z-Wave', 'LoRa', 'SRD860']
+      info.notes = 'European equivalent of 915 MHz US band. Smart home and automotive.'
+    }
+    // 902-928 MHz (US ISM)
+    else if (freqMHz >= 902 && freqMHz < 928) {
+      info.band = '915 MHz ISM'
+      info.region = 'North America'
+      info.category = 'Smart Meters & LoRa'
+      info.icon = Gauge
+      info.color = 'cyan'
+      info.commonUses = [
+        'Smart electric meters (Itron, Sensus)',
+        'Smart water meters',
+        'LoRa/LoRaWAN devices',
+        'Industrial ISM',
+        'Z-Wave (US)',
+      ]
+      info.protocols = ['ERT (SCM/SCM+)', 'IDM', 'LoRa', 'Z-Wave']
+      info.notes = 'US utility meters frequency hop in this band. May see bursts of activity.'
+    }
+    // FM Broadcast
+    else if (freqMHz >= 87.5 && freqMHz < 108) {
+      info.band = 'FM Broadcast'
+      info.region = 'Worldwide'
+      info.category = 'Commercial Radio'
+      info.icon = Radio
+      info.color = 'pink'
+      info.commonUses = [
+        'Commercial FM radio stations',
+        'NPR, local stations',
+        'Music, news, talk radio',
+      ]
+      info.protocols = ['FM stereo', 'RDS']
+      info.notes = 'Commercial broadcast band. Strong signals with wide bandwidth.'
+    }
+    // Aircraft
+    else if (freqMHz >= 118 && freqMHz < 137) {
+      info.band = 'Aircraft Band'
+      info.region = 'Worldwide'
+      info.category = 'Aviation'
+      info.icon = Waves
+      info.color = 'sky'
+      info.commonUses = [
+        'Air traffic control',
+        'Pilot communications',
+        'ATIS (weather info)',
+        'Ground control',
+      ]
+      info.protocols = ['AM voice', 'ACARS (digital)']
+      info.notes = 'AM modulation. Active near airports. ACARS on 131.550 MHz.'
+    }
+    // Marine VHF
+    else if (freqMHz >= 156 && freqMHz < 163) {
+      info.band = 'Marine VHF'
+      info.region = 'Worldwide'
+      info.category = 'Maritime'
+      info.icon = Waves
+      info.color = 'blue'
+      info.commonUses = [
+        'Ship-to-ship communication',
+        'Ship-to-shore',
+        'Distress calls (Ch 16)',
+        'Coast Guard',
+      ]
+      info.protocols = ['FM voice', 'DSC', 'AIS (161.975/162.025)']
+      info.notes = 'Channel 16 (156.8 MHz) is emergency/calling. Active near waterways.'
+    }
+    // Weather (NOAA)
+    else if (freqMHz >= 162 && freqMHz < 163) {
+      info.band = 'NOAA Weather'
+      info.region = 'North America'
+      info.category = 'Weather Broadcast'
+      info.icon = CloudRain
+      info.color = 'yellow'
+      info.commonUses = [
+        'NOAA weather forecasts',
+        'Severe weather alerts',
+        '24/7 broadcast',
+      ]
+      info.protocols = ['SAME (Specific Area Message Encoding)']
+      info.notes = 'Continuous weather broadcasts. 7 channels: 162.400-162.550 MHz.'
+    }
+    // Default
+    else {
+      info.band = `${freqMHz.toFixed(2)} MHz`
+      info.region = 'Various'
+      info.category = 'Unknown / Other'
+      info.icon = Radio
+      info.color = 'gray'
+      info.commonUses = ['Could not identify specific use for this frequency']
+      info.protocols = ['Unknown']
+      info.notes = 'Check regional frequency allocations for more information.'
+    }
+
+    return info
+  }
+
+  function openSignalModal(peak: Peak) {
+    setSelectedPeak(peak)
+    setShowSignalModal(true)
+  }
+
+  function closeSignalModal() {
+    setShowSignalModal(false)
+    setSelectedPeak(null)
   }
 
   return (
@@ -1217,29 +1462,46 @@ export default function SpectrumScanner() {
           <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
             <Zap className="h-4 w-4 mr-2 text-yellow-500" />
             Detected Signals ({peaks.length})
+            <span className="ml-2 text-xs text-gray-400 font-normal">Click for details</span>
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {peaks.map((peak, i) => (
-              <div
-                key={i}
-                className="bg-gray-50 rounded-lg p-3 border hover:border-blue-300 cursor-pointer transition-colors"
-              >
-                <div className="text-lg font-bold text-gray-900">
-                  {peak.frequency.toFixed(3)} MHz
+            {peaks.map((peak, i) => {
+              const signalInfo = getSignalInfo(peak.frequency)
+              const IconComponent = signalInfo.icon
+              return (
+                <div
+                  key={i}
+                  onClick={() => openSignalModal(peak)}
+                  className="bg-gray-50 rounded-lg p-3 border hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-all group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="text-lg font-bold text-gray-900 group-hover:text-blue-700">
+                      {peak.frequency.toFixed(3)} MHz
+                    </div>
+                    <IconComponent className={`h-4 w-4 text-${signalInfo.color}-500 opacity-60`} />
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {peak.power.toFixed(1)} dB
+                  </div>
+                  <div className="mt-1 text-xs text-gray-400 truncate">
+                    {signalInfo.category}
+                  </div>
+                  <div className="mt-2 flex gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openSignalModal(peak)
+                      }}
+                      className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 flex items-center"
+                      title="View signal details"
+                    >
+                      <Info className="h-3 w-3 mr-1" />
+                      Details
+                    </button>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {peak.power.toFixed(1)} dB
-                </div>
-                <div className="mt-2 flex gap-1">
-                  <button
-                    className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                    title="Listen to this frequency"
-                  >
-                    <Volume2 className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -1283,6 +1545,192 @@ export default function SpectrumScanner() {
           RTL-SDR is receive-only and cannot transmit. This is for educational/research purposes only.
         </p>
       </div>
+
+      {/* Signal Detail Modal */}
+      {showSignalModal && selectedPeak && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            {(() => {
+              const info = getSignalInfo(selectedPeak.frequency)
+              const IconComponent = info.icon
+              const colorClasses: Record<string, string> = {
+                purple: 'from-purple-500 to-purple-600',
+                green: 'from-green-500 to-green-600',
+                blue: 'from-blue-500 to-blue-600',
+                red: 'from-red-500 to-red-600',
+                orange: 'from-orange-500 to-orange-600',
+                cyan: 'from-cyan-500 to-cyan-600',
+                pink: 'from-pink-500 to-pink-600',
+                sky: 'from-sky-500 to-sky-600',
+                yellow: 'from-yellow-500 to-yellow-600',
+                gray: 'from-gray-500 to-gray-600',
+              }
+              const bgColorClasses: Record<string, string> = {
+                purple: 'bg-purple-50',
+                green: 'bg-green-50',
+                blue: 'bg-blue-50',
+                red: 'bg-red-50',
+                orange: 'bg-orange-50',
+                cyan: 'bg-cyan-50',
+                pink: 'bg-pink-50',
+                sky: 'bg-sky-50',
+                yellow: 'bg-yellow-50',
+                gray: 'bg-gray-50',
+              }
+              const textColorClasses: Record<string, string> = {
+                purple: 'text-purple-700',
+                green: 'text-green-700',
+                blue: 'text-blue-700',
+                red: 'text-red-700',
+                orange: 'text-orange-700',
+                cyan: 'text-cyan-700',
+                pink: 'text-pink-700',
+                sky: 'text-sky-700',
+                yellow: 'text-yellow-700',
+                gray: 'text-gray-700',
+              }
+
+              return (
+                <>
+                  <div className={`bg-gradient-to-r ${colorClasses[info.color] || colorClasses.gray} p-4 text-white`}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center">
+                        <div className="bg-white bg-opacity-20 rounded-lg p-2 mr-3">
+                          <IconComponent className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-bold">{selectedPeak.frequency.toFixed(3)} MHz</h2>
+                          <p className="text-white text-opacity-90">{info.category}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={closeSignalModal}
+                        className="text-white text-opacity-80 hover:text-opacity-100 transition-opacity"
+                      >
+                        <X className="h-6 w-6" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div className="p-5 overflow-y-auto max-h-[60vh]">
+                    {/* Signal Strength */}
+                    <div className="mb-5 p-4 bg-gray-900 rounded-lg">
+                      <div className="flex items-center justify-between text-white">
+                        <div>
+                          <div className="text-sm text-gray-400">Signal Strength</div>
+                          <div className="text-3xl font-bold">{selectedPeak.power.toFixed(1)} dB</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-400">Relative to Noise</div>
+                          <div className="text-xl font-semibold text-green-400">
+                            +{(selectedPeak.power - (avgPower || -20)).toFixed(1)} dB
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 rounded-full"
+                          style={{ width: `${Math.min(100, Math.max(0, (selectedPeak.power + 30) * 2))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Band & Region */}
+                    <div className="grid grid-cols-2 gap-3 mb-5">
+                      <div className={`${bgColorClasses[info.color] || bgColorClasses.gray} rounded-lg p-3`}>
+                        <div className="flex items-center text-gray-600 mb-1">
+                          <Waves className="h-4 w-4 mr-1.5" />
+                          <span className="text-xs font-medium">Band</span>
+                        </div>
+                        <div className={`font-semibold ${textColorClasses[info.color] || textColorClasses.gray}`}>
+                          {info.band}
+                        </div>
+                      </div>
+                      <div className={`${bgColorClasses[info.color] || bgColorClasses.gray} rounded-lg p-3`}>
+                        <div className="flex items-center text-gray-600 mb-1">
+                          <MapPin className="h-4 w-4 mr-1.5" />
+                          <span className="text-xs font-medium">Region</span>
+                        </div>
+                        <div className={`font-semibold ${textColorClasses[info.color] || textColorClasses.gray}`}>
+                          {info.region}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Common Uses */}
+                    <div className="mb-5">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                        <Tag className="h-4 w-4 mr-1.5" />
+                        Common Uses
+                      </h3>
+                      <ul className="space-y-1.5">
+                        {info.commonUses.map((use, i) => (
+                          <li key={i} className="flex items-start text-sm text-gray-600">
+                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-1.5 mr-2 flex-shrink-0" />
+                            {use}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Known Protocols */}
+                    <div className="mb-5">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                        <Signal className="h-4 w-4 mr-1.5" />
+                        Known Protocols
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {info.protocols.map((proto, i) => (
+                          <span
+                            key={i}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${bgColorClasses[info.color] || bgColorClasses.gray} ${textColorClasses[info.color] || textColorClasses.gray}`}
+                          >
+                            {proto}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    {info.notes && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex items-start">
+                          <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
+                          <p className="text-sm text-amber-800">{info.notes}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="border-t border-gray-200 p-4 bg-gray-50 flex justify-between items-center">
+                    <button
+                      onClick={() => {
+                        setLiveCenterFreq(`${selectedPeak.frequency}M`)
+                        setTunerFreq(selectedPeak.frequency)
+                        closeSignalModal()
+                        setMode('live')
+                      }}
+                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                    >
+                      <Activity className="h-4 w-4 mr-1.5" />
+                      Monitor Live
+                    </button>
+                    <button
+                      onClick={closeSignalModal}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
