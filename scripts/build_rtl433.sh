@@ -15,20 +15,31 @@ echo "RTL-433 source: $RTL433_DIR"
 # Check for required dependencies
 echo ""
 echo "Checking dependencies..."
-DEPS="cmake build-essential librtlsdr-dev libusb-1.0-0-dev pkg-config"
+
 MISSING=""
 
-for dep in $DEPS; do
-    if ! dpkg -l | grep -q "^ii  $dep"; then
-        MISSING="$MISSING $dep"
+# Check for build tools
+for cmd in cmake make gcc pkg-config; do
+    if ! command -v "$cmd" &> /dev/null; then
+        MISSING="$MISSING $cmd"
     fi
 done
+
+# Check for rtl-sdr header (can be from librtlsdr-dev OR newer librtlsdr)
+if [ ! -f "/usr/include/rtl-sdr.h" ]; then
+    MISSING="$MISSING librtlsdr-dev"
+fi
+
+# Check for libusb
+if [ ! -f "/usr/include/libusb-1.0/libusb.h" ]; then
+    MISSING="$MISSING libusb-1.0-0-dev"
+fi
 
 if [ -n "$MISSING" ]; then
     echo "Missing dependencies:$MISSING"
     echo ""
     echo "Install with:"
-    echo "  sudo apt update && sudo apt install -y$MISSING"
+    echo "  sudo apt install -y$MISSING"
     exit 1
 fi
 
