@@ -1707,11 +1707,38 @@ export default function SpectrumScanner() {
                   {/* Modal Footer */}
                   <div className="border-t border-gray-200 p-4 bg-gray-50 flex justify-between items-center">
                     <button
-                      onClick={() => {
-                        setLiveCenterFreq(`${selectedPeak.frequency}M`)
-                        setTunerFreq(selectedPeak.frequency)
+                      onClick={async () => {
+                        const freq = selectedPeak.frequency
                         closeSignalModal()
                         setMode('live')
+                        setLiveCenterFreq(`${freq}M`)
+                        setTunerFreq(freq)
+
+                        // Stop rtl_433 if running, then start live
+                        if (rtl433Running) {
+                          await stopRtl433()
+                        }
+                        // Small delay to ensure device is released
+                        setTimeout(async () => {
+                          try {
+                            const params = new URLSearchParams({
+                              center_freq: `${freq}M`,
+                              sample_rate: liveSampleRate,
+                              fft_size: liveFftSize.toString(),
+                              gain: liveGain.toString(),
+                              averaging: liveAveraging.toString(),
+                            })
+                            const response = await fetch(`${API_BASE}/spectrum/live/start?${params}`, {
+                              method: 'POST',
+                            })
+                            if (response.ok) {
+                              setLiveRunning(true)
+                              connectWebSocket()
+                            }
+                          } catch (err) {
+                            console.error('Failed to start live:', err)
+                          }
+                        }, 500)
                       }}
                       className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
                     >
