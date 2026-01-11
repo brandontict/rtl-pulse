@@ -14,8 +14,9 @@ from .database import init_db, get_session, DatabaseManager, async_session
 from .rtl_manager import rtl_manager
 from .mqtt_client import mqtt_client
 from .websocket import ws_manager, handle_websocket
-from .routers import sensors_router, devices_router, signals_router, system_router, audio_router
+from .routers import sensors_router, devices_router, signals_router, system_router, audio_router, spectrum_router
 from .audio_manager import audio_manager
+from .spectrum_manager import spectrum_manager
 
 # Configure logging
 logging.basicConfig(
@@ -81,6 +82,10 @@ async def lifespan(app: FastAPI):
     if audio_manager.is_running:
         await audio_manager.stop()
 
+    # Stop spectrum analyzer
+    if spectrum_manager.is_running:
+        await spectrum_manager.stop()
+
     # Stop rtl_433
     if rtl_manager.is_running:
         await rtl_manager.stop()
@@ -120,6 +125,7 @@ app.include_router(devices_router, prefix=settings.api_prefix)
 app.include_router(signals_router, prefix=settings.api_prefix)
 app.include_router(system_router, prefix=settings.api_prefix)
 app.include_router(audio_router, prefix=settings.api_prefix)
+app.include_router(spectrum_router, prefix=settings.api_prefix)
 
 
 @app.get("/")

@@ -22,6 +22,9 @@ websockets>=12.0
 asyncio>=3.4.3
 aiofiles>=23.2.1
 
+# Signal processing (for live spectrum)
+numpy>=1.24.0
+
 # Date/time handling
 python-dateutil>=2.8.2
 

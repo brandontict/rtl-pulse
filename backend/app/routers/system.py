@@ -1,9 +1,13 @@
 """System status and control API endpoints."""
 
 import time
+import os
 from datetime import datetime
+from pathlib import Path
+from typing import Optional, List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
@@ -140,3 +144,123 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "version": "0.1.0",
     }
+
+
+@router.get("/logs")
+async def get_logs(
+    log_type: str = Query("rtl_433", description="Log type: rtl_433, backend, all"),
+    lines: int = Query(100, ge=1, le=1000, description="Number of lines to return"),
+    search: Optional[str] = Query(None, description="Search filter"),
+):
+    """Get log file contents."""
+    logs_dir = settings.data_dir / "logs"
+    result = []
+
+    log_files = {
+        "rtl_433": logs_dir / "rtl_433.log",
+        "backend": logs_dir / "backend.log",
+        "dashboard": logs_dir / "dashboard.log",
+        "analyzer": logs_dir / "analyzer.log",
+    }
+
+    files_to_read = [log_type] if log_type != "all" else list(log_files.keys())
+
+    for log_name in files_to_read:
+        if log_name not in log_files:
+            continue
+
+        log_file = log_files[log_name]
+        if not log_file.exists():
+            continue
+
+        try:
+            with open(log_file, "r") as f:
+                file_lines = f.readlines()
+
+            # Get last N lines
+            file_lines = file_lines[-lines:]
+
+            for line in file_lines:
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Apply search filter
+                if search and search.lower() not in line.lower():
+                    continue
+
+                # Parse JSON if it looks like rtl_433 output
+                entry = {
+                    "source": log_name,
+                    "raw": line,
+                    "timestamp": None,
+                    "level": "info",
+                    "is_json": False,
+                }
+
+                # Try to detect log level
+                line_lower = line.lower()
+                if "error" in line_lower:
+                    entry["level"] = "error"
+                elif "warning" in line_lower or "warn" in line_lower:
+                    entry["level"] = "warning"
+                elif "debug" in line_lower:
+                    entry["level"] = "debug"
+
+                # Check if it's JSON (rtl_433 signal data)
+                if line.startswith("{"):
+                    entry["is_json"] = True
+                    entry["level"] = "signal"
+
+                result.append(entry)
+
+        except Exception as e:
+            result.append({
+                "source": log_name,
+                "raw": f"Error reading log: {e}",
+                "level": "error",
+                "is_json": False,
+            })
+
+    return {
+        "logs": result[-lines:],  # Ensure we don't exceed requested lines
+        "count": len(result),
+        "sources": files_to_read,
+    }
+
+
+@router.get("/logs/files")
+async def list_log_files():
+    """List available log files."""
+    logs_dir = settings.data_dir / "logs"
+    files = []
+
+    if logs_dir.exists():
+        for f in logs_dir.iterdir():
+            if f.is_file() and f.suffix == ".log":
+                stat = f.stat()
+                files.append({
+                    "name": f.stem,
+                    "filename": f.name,
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                })
+
+    return {"files": files, "count": len(files)}
+
+
+@router.delete("/logs/{log_name}")
+async def clear_log(log_name: str):
+    """Clear a specific log file."""
+    logs_dir = settings.data_dir / "logs"
+    log_file = logs_dir / f"{log_name}.log"
+
+    if not log_file.exists():
+        return {"status": "error", "message": f"Log file {log_name} not found"}
+
+    try:
+        with open(log_file, "w") as f:
+            f.write("")
+        return {"status": "success", "message": f"Cleared {log_name}.log"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

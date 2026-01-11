@@ -7,7 +7,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import AsyncGenerator, Callable
+from typing import AsyncGenerator, Callable, Optional, List
 
 from .config import get_settings
 
@@ -19,10 +19,10 @@ class RTL433Manager:
     """Manages the rtl_433 subprocess and parses its output."""
 
     def __init__(self):
-        self.process: asyncio.subprocess.Process | None = None
+        self.process: Optional[asyncio.subprocess.Process] = None
         self.running = False
-        self._callbacks: list[Callable] = []
-        self._task: asyncio.Task | None = None
+        self._callbacks: List[Callable] = []
+        self._task: Optional[asyncio.Task] = None
 
     @property
     def is_running(self) -> bool:
@@ -172,7 +172,7 @@ class RTL433Manager:
         finally:
             logger.info("rtl_433 output reader stopped")
 
-    async def analyze_signal(self, duration: int = 10) -> list[dict]:
+    async def analyze_signal(self, duration: int = 10) -> List[dict]:
         """Run rtl_433 in analyze mode for signal exploration."""
         rtl433_bin = settings.rtl433_bin
 

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
-from fastapi import APIRouter, Query
+import asyncio
+import subprocess
+from typing import Optional, List
+from fastapi import APIRouter, Query, HTTPException
 
 from ..rtl_manager import rtl_manager
 from ..protocols import (
@@ -160,4 +162,278 @@ async def generate_config(
     return {
         "config": "\n".join(config_lines),
         "protocols_enabled": len(protocols),
+    }
+
+
+@router.post("/spectrum/scan")
+async def scan_spectrum(
+    start_freq: str = Query("400M", description="Start frequency (e.g., 400M, 88M)"),
+    end_freq: str = Query("450M", description="End frequency (e.g., 450M, 108M)"),
+    bin_size: str = Query("100k", description="Bin size (e.g., 100k, 1M)"),
+    integration: int = Query(10, ge=1, le=60, description="Integration time in seconds"),
+    gain: int = Query(40, ge=0, le=50, description="Tuner gain"),
+):
+    """
+    Scan spectrum using rtl_power to find active frequencies.
+    Returns power levels across the frequency range.
+    """
+    if rtl_manager.is_running:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot scan while rtl_433 is running. Stop it first via POST /api/v1/system/rtl433/stop"
+        )
+
+    try:
+        # Run rtl_power
+        cmd = [
+            "rtl_power",
+            "-f", f"{start_freq}:{end_freq}:{bin_size}",
+            "-g", str(gain),
+            "-i", str(integration),
+            "-1",  # Single shot mode
+            "-"    # Output to stdout
+        ]
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(),
+            timeout=integration + 30
+        )
+
+        # Parse rtl_power output
+        # Format: date, time, freq_low, freq_high, step, samples, dB values...
+        results = []
+        lines = stdout.decode().strip().split('\n')
+
+        for line in lines:
+            if not line.strip():
+                continue
+            parts = line.split(',')
+            if len(parts) < 7:
+                continue
+
+            try:
+                freq_low = float(parts[2])
+                freq_high = float(parts[3])
+                step = float(parts[4])
+                db_values = [float(x) for x in parts[6:]]
+
+                # Generate frequency points
+                num_points = len(db_values)
+                if num_points > 0:
+                    freq_step = (freq_high - freq_low) / num_points
+                    for i, db in enumerate(db_values):
+                        freq = freq_low + (i * freq_step)
+                        results.append({
+                            "frequency": round(freq / 1e6, 4),  # MHz
+                            "power": round(db, 1),
+                        })
+            except (ValueError, IndexError):
+                continue
+
+        # Find peaks (frequencies with power > average + 10dB)
+        if results:
+            avg_power = sum(r["power"] for r in results) / len(results)
+            peaks = [r for r in results if r["power"] > avg_power + 10]
+        else:
+            peaks = []
+
+        return {
+            "start_freq": start_freq,
+            "end_freq": end_freq,
+            "bin_size": bin_size,
+            "integration_seconds": integration,
+            "total_points": len(results),
+            "spectrum": results,
+            "peaks": sorted(peaks, key=lambda x: x["power"], reverse=True)[:20],
+            "average_power": round(avg_power, 1) if results else None,
+        }
+
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Spectrum scan timed out")
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="rtl_power not found. Install rtl-sdr tools.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/spectrum/presets")
+async def get_spectrum_presets():
+    """Get preset frequency ranges for common signal types."""
+    return {
+        "presets": [
+            # ===== CAR KEYFOB / REMOTE FREQUENCIES =====
+            {
+                "name": "315 MHz Car Fobs (US)",
+                "start": "314M",
+                "end": "316M",
+                "bin": "25k",
+                "description": "US car key fobs, garage doors (Ford, GM, Toyota US)",
+                "category": "car_keyfob"
+            },
+            {
+                "name": "433.92 MHz Car Fobs (EU/Asia)",
+                "start": "433M",
+                "end": "435M",
+                "bin": "25k",
+                "description": "European/Asian car remotes, most keyfobs worldwide",
+                "category": "car_keyfob"
+            },
+            {
+                "name": "310 MHz Car Fobs (Asia)",
+                "start": "309M",
+                "end": "311M",
+                "bin": "25k",
+                "description": "Asian market car remotes (Honda, Toyota Asia)",
+                "category": "car_keyfob"
+            },
+            {
+                "name": "345 MHz Security/Car (US)",
+                "start": "344M",
+                "end": "346M",
+                "bin": "25k",
+                "description": "US security systems, some car remotes",
+                "category": "car_keyfob"
+            },
+            {
+                "name": "868 MHz Car Fobs (EU)",
+                "start": "867M",
+                "end": "870M",
+                "bin": "25k",
+                "description": "European car remotes, BMW/Mercedes/Audi newer models",
+                "category": "car_keyfob"
+            },
+            {
+                "name": "390 MHz Car Fobs",
+                "start": "389M",
+                "end": "391M",
+                "bin": "25k",
+                "description": "Some older US car remotes, Security+",
+                "category": "car_keyfob"
+            },
+            {
+                "name": "303.875 MHz Garage/Car",
+                "start": "303M",
+                "end": "305M",
+                "bin": "25k",
+                "description": "LiftMaster, Chamberlain garage, some cars",
+                "category": "car_keyfob"
+            },
+            {
+                "name": "318 MHz Car Fobs",
+                "start": "317M",
+                "end": "319M",
+                "bin": "25k",
+                "description": "Toyota, Lexus (some models)",
+                "category": "car_keyfob"
+            },
+            # ===== TPMS (TIRE PRESSURE) =====
+            {
+                "name": "315 MHz TPMS (US)",
+                "start": "314M",
+                "end": "316M",
+                "bin": "12.5k",
+                "description": "US tire pressure monitors (most US vehicles)",
+                "category": "tpms"
+            },
+            {
+                "name": "433 MHz TPMS (EU/Asia)",
+                "start": "433M",
+                "end": "434M",
+                "bin": "12.5k",
+                "description": "European/Asian TPMS sensors",
+                "category": "tpms"
+            },
+            # ===== BROADCAST =====
+            {
+                "name": "FM Broadcast",
+                "start": "87.5M",
+                "end": "108M",
+                "bin": "100k",
+                "description": "Commercial FM radio stations",
+                "category": "broadcast"
+            },
+            # ===== ISM BANDS =====
+            {
+                "name": "433 MHz ISM",
+                "start": "432M",
+                "end": "436M",
+                "bin": "50k",
+                "description": "Weather sensors, remotes, IoT devices",
+                "category": "ism"
+            },
+            {
+                "name": "915 MHz ISM (US)",
+                "start": "902M",
+                "end": "928M",
+                "bin": "100k",
+                "description": "US LoRa, smart meters, ISM",
+                "category": "ism"
+            },
+            # ===== AVIATION/MARINE =====
+            {
+                "name": "Aircraft Band",
+                "start": "118M",
+                "end": "137M",
+                "bin": "25k",
+                "description": "Aviation AM communications",
+                "category": "aviation"
+            },
+            {
+                "name": "Marine VHF",
+                "start": "156M",
+                "end": "163M",
+                "bin": "25k",
+                "description": "Marine radio communications",
+                "category": "marine"
+            },
+            # ===== HAM RADIO =====
+            {
+                "name": "2m Ham Band",
+                "start": "144M",
+                "end": "148M",
+                "bin": "25k",
+                "description": "Amateur radio 2 meter band",
+                "category": "ham"
+            },
+            {
+                "name": "70cm Ham Band",
+                "start": "420M",
+                "end": "450M",
+                "bin": "100k",
+                "description": "Amateur radio 70cm band",
+                "category": "ham"
+            },
+            # ===== TWO-WAY RADIO =====
+            {
+                "name": "FRS/GMRS",
+                "start": "462M",
+                "end": "468M",
+                "bin": "12.5k",
+                "description": "Family Radio Service & GMRS",
+                "category": "two_way"
+            },
+            # ===== WIDE SCAN =====
+            {
+                "name": "All Car Frequencies",
+                "start": "300M",
+                "end": "450M",
+                "bin": "500k",
+                "description": "Wide scan covering most car remote frequencies",
+                "category": "wide_scan"
+            },
+            {
+                "name": "Wide Scan 25-1000",
+                "start": "25M",
+                "end": "1000M",
+                "bin": "1M",
+                "description": "Full RTL-SDR range overview",
+                "category": "wide_scan"
+            },
+        ]
     }

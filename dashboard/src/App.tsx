@@ -1,19 +1,24 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
-import { Radio, LayoutDashboard, History, Settings, Activity, Cpu } from 'lucide-react'
+import { Radio, LayoutDashboard, History, Settings, Activity, Cpu, Waves, Terminal, BarChart3 } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import HistoryPage from './pages/History'
 import Devices from './pages/Devices'
 import SettingsPage from './pages/Settings'
 import ConfigurationPage from './pages/Configuration'
+import Signals from './pages/Signals'
+import ConsoleLogs from './pages/ConsoleLogs'
+import SpectrumScanner from './pages/SpectrumScanner'
 
 function App() {
   const location = useLocation()
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/history', label: 'History', icon: History },
+    { path: '/signals', label: 'Signals', icon: Waves },
+    { path: '/spectrum', label: 'Spectrum', icon: BarChart3 },
     { path: '/devices', label: 'Devices', icon: Radio },
-    { path: '/config', label: 'Configuration', icon: Cpu },
+    { path: '/logs', label: 'Console', icon: Terminal },
+    { path: '/config', label: 'Config', icon: Cpu },
     { path: '/settings', label: 'Settings', icon: Settings },
   ]
 
@@ -49,8 +54,11 @@ function App() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/signals" element={<Signals />} />
+          <Route path="/spectrum" element={<SpectrumScanner />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/devices" element={<Devices />} />
+          <Route path="/logs" element={<ConsoleLogs />} />
           <Route path="/config" element={<ConfigurationPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>

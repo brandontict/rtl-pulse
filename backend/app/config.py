@@ -30,8 +30,8 @@ class Settings(BaseSettings):
     # MQTT
     mqtt_broker: str = "localhost"
     mqtt_port: int = 1883
-    mqtt_username: str | None = None
-    mqtt_password: str | None = None
+    mqtt_username: Optional[str] = None
+    mqtt_password: Optional[str] = None
     mqtt_client_id: str = "rtl-sdr-dashboard"
     mqtt_topic_prefix: str = "rtl_433"
 

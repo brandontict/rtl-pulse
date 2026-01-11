@@ -87,7 +87,7 @@ class MQTTClient:
         self.connected = False
         logger.info("Disconnected from MQTT broker")
 
-    def publish(self, topic: str, payload: dict | str, retain: bool = False):
+    def publish(self, topic: str, payload, retain: bool = False):
         """Publish a message to MQTT."""
         if not self.connected:
             logger.warning("MQTT not connected, message not sent")

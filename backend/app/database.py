@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional, List
 
 from sqlalchemy import Column, Integer, Float, String, Boolean, DateTime, JSON, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -153,7 +153,7 @@ class DatabaseManager:
             return f"{model}_{sensor_id}_{channel}"
         return f"{model}_{sensor_id}"
 
-    async def get_devices(self, enabled_only: bool = False) -> list[DeviceModel]:
+    async def get_devices(self, enabled_only: bool = False) -> List[DeviceModel]:
         """Get all devices."""
         query = select(DeviceModel).order_by(DeviceModel.last_seen.desc())
         if enabled_only:
@@ -161,14 +161,14 @@ class DatabaseManager:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def get_device(self, device_id: str) -> DeviceModel | None:
+    async def get_device(self, device_id: str) -> Optional[DeviceModel]:
         """Get a device by ID."""
         result = await self.session.execute(
             select(DeviceModel).where(DeviceModel.device_id == device_id)
         )
         return result.scalar_one_or_none()
 
-    async def update_device(self, device_id: str, name: str = None, enabled: bool = None) -> DeviceModel | None:
+    async def update_device(self, device_id: str, name: str = None, enabled: bool = None) -> Optional[DeviceModel]:
         """Update device settings."""
         device = await self.get_device(device_id)
         if device:
@@ -185,7 +185,7 @@ class DatabaseManager:
         start_time: datetime = None,
         end_time: datetime = None,
         limit: int = 100,
-    ) -> list[ReadingModel]:
+    ) -> List[ReadingModel]:
         """Get sensor readings with optional filters."""
         query = select(ReadingModel).order_by(ReadingModel.time.desc()).limit(limit)
 
@@ -199,7 +199,7 @@ class DatabaseManager:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def get_latest_reading(self, device_id: str) -> ReadingModel | None:
+    async def get_latest_reading(self, device_id: str) -> Optional[ReadingModel]:
         """Get the most recent reading for a device."""
         result = await self.session.execute(
             select(ReadingModel)
