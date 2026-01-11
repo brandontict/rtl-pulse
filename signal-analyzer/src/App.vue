@@ -7,6 +7,7 @@ const navItems = [
   { path: '/', label: 'Analyzer', icon: '📊' },
   { path: '/decoder', label: 'Decoder', icon: '🔓' },
   { path: '/explorer', label: 'Explorer', icon: '🔍' },
+  { path: '/audio', label: 'Audio', icon: '🎧' },
 ]
 </script>
 

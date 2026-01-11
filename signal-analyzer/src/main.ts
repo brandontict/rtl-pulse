@@ -6,6 +6,7 @@ import './style.css'
 import Analyzer from './views/Analyzer.vue'
 import Decoder from './views/Decoder.vue'
 import Explorer from './views/Explorer.vue'
+import AudioPlayer from './views/AudioPlayer.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -13,6 +14,7 @@ const router = createRouter({
     { path: '/', component: Analyzer },
     { path: '/decoder', component: Decoder },
     { path: '/explorer', component: Explorer },
+    { path: '/audio', component: AudioPlayer },
   ],
 })
 
