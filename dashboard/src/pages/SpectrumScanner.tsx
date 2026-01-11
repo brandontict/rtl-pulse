@@ -1085,11 +1085,11 @@ export default function SpectrumScanner() {
       {/* Live Decode Panel */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {/* Panel Header */}
-        <button
-          onClick={() => setShowDecodePanel(!showDecodePanel)}
-          className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
-        >
-          <div className="flex items-center">
+        <div className="px-4 py-3 flex items-center justify-between bg-gray-50">
+          <button
+            onClick={() => setShowDecodePanel(!showDecodePanel)}
+            className="flex items-center hover:text-purple-700 transition-colors"
+          >
             <Signal className="h-4 w-4 mr-2 text-purple-600" />
             <span className="font-medium text-gray-700">Live Decode</span>
             {rtl433Running && decodeConnected && (
@@ -1103,13 +1103,28 @@ export default function SpectrumScanner() {
                 {decodedSignals.length}
               </span>
             )}
-          </div>
-          {showDecodePanel ? (
-            <ChevronUp className="h-4 w-4 text-gray-400" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            {showDecodePanel ? (
+              <ChevronUp className="h-4 w-4 ml-2 text-gray-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 ml-2 text-gray-400" />
+            )}
+          </button>
+
+          {/* Stop Listening Button */}
+          {rtl433Running && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                stopRtl433()
+                setDecodedSignals([])
+              }}
+              className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 border border-red-200 transition-colors"
+            >
+              <Square className="h-3 w-3 mr-1.5" />
+              Stop Listening
+            </button>
           )}
-        </button>
+        </div>
 
         {/* Panel Content */}
         {showDecodePanel && (
