@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Radio,
-  Zap,
   Clock,
   Thermometer,
   Droplets,
   Battery,
   Signal,
-  Filter,
   Trash2,
   Pause,
   Play,
@@ -21,6 +19,7 @@ import {
   CheckCircle,
   Copy,
   Search,
+  Terminal,
 } from 'lucide-react'
 
 interface DecodedSignal {
@@ -61,7 +60,9 @@ export default function Decoding() {
   const [showRaw, setShowRaw] = useState(false)
   const [protocolStats, setProtocolStats] = useState<Map<string, ProtocolStats>>(new Map())
   const [expandedProtocols, setExpandedProtocols] = useState<Set<string>>(new Set())
-  const [viewMode, setViewMode] = useState<'list' | 'protocol'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'protocol' | 'log'>('list')
+  const [autoScroll, setAutoScroll] = useState(true)
+  const logContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const signalIdRef = useRef(0)
   const maxSignals = 500
@@ -74,6 +75,13 @@ export default function Decoding() {
       }
     }
   }, [])
+
+  // Auto-scroll to bottom in log view
+  useEffect(() => {
+    if (autoScroll && viewMode === 'log' && logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
+    }
+  }, [signals, autoScroll, viewMode])
 
   function connectWebSocket() {
     const ws = new WebSocket(WS_URL)
@@ -262,7 +270,7 @@ export default function Decoding() {
                 viewMode === 'list' ? 'bg-white shadow text-purple-700' : 'text-gray-600'
               }`}
             >
-              List View
+              List
             </button>
             <button
               onClick={() => setViewMode('protocol')}
@@ -270,7 +278,16 @@ export default function Decoding() {
                 viewMode === 'protocol' ? 'bg-white shadow text-purple-700' : 'text-gray-600'
               }`}
             >
-              By Protocol
+              Protocol
+            </button>
+            <button
+              onClick={() => setViewMode('log')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center ${
+                viewMode === 'log' ? 'bg-white shadow text-purple-700' : 'text-gray-600'
+              }`}
+            >
+              <Terminal className="h-3 w-3 mr-1" />
+              Log
             </button>
           </div>
 
@@ -359,12 +376,43 @@ export default function Decoding() {
             </h3>
           </div>
 
-          <div className="max-h-[500px] overflow-y-auto">
+          <div className={`overflow-y-auto ${viewMode === 'log' ? 'max-h-[600px]' : 'max-h-[500px]'}`} ref={logContainerRef}>
             {filteredSignals.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
                 <Radio className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No signals decoded yet</p>
                 <p className="text-sm">Waiting for rtl_433 data...</p>
+              </div>
+            ) : viewMode === 'log' ? (
+              /* Terminal Log View */
+              <div className="bg-gray-900 p-4 font-mono text-sm min-h-[400px]">
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-700">
+                  <div className="flex items-center text-green-400">
+                    <Terminal className="h-4 w-4 mr-2" />
+                    <span>Signal Log</span>
+                    <span className="ml-2 text-gray-500">|</span>
+                    <span className="ml-2 text-gray-400">{filteredSignals.length} entries</span>
+                  </div>
+                  <button
+                    onClick={() => setAutoScroll(!autoScroll)}
+                    className={`text-xs px-2 py-1 rounded ${
+                      autoScroll ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'
+                    }`}
+                  >
+                    Auto-scroll: {autoScroll ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {[...filteredSignals].reverse().map((sig, idx) => (
+                    <LogEntry
+                      key={sig.id}
+                      signal={sig}
+                      index={filteredSignals.length - idx}
+                      onClick={() => setSelectedSignal(sig)}
+                      isSelected={selectedSignal?.id === sig.id}
+                    />
+                  ))}
+                </div>
               </div>
             ) : viewMode === 'list' ? (
               <div className="divide-y divide-gray-100">
@@ -626,6 +674,86 @@ function SignalRow({
           {signal.time}
         </div>
       </div>
+    </div>
+  )
+}
+
+// Terminal Log Entry Component
+function LogEntry({
+  signal,
+  index,
+  onClick,
+  isSelected,
+}: {
+  signal: DecodedSignal
+  index: number
+  onClick: () => void
+  isSelected: boolean
+}) {
+  const date = new Date(signal.timestamp)
+  const timestamp = date.toLocaleTimeString('en-US', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }) + '.' + String(date.getMilliseconds()).padStart(3, '0')
+
+  // Build data string
+  const dataFields: string[] = []
+  if (signal.id_device !== undefined) dataFields.push(`id=${signal.id_device}`)
+  if (signal.channel !== undefined) dataFields.push(`ch=${signal.channel}`)
+  if (signal.temperature_C !== undefined) dataFields.push(`temp=${signal.temperature_C.toFixed(1)}°C`)
+  if (signal.humidity !== undefined) dataFields.push(`hum=${signal.humidity}%`)
+  if (signal.battery_ok !== undefined) dataFields.push(`bat=${signal.battery_ok ? 'OK' : 'LOW'}`)
+  if (signal.rssi !== undefined) dataFields.push(`rssi=${signal.rssi}dB`)
+  if (signal.pressure_hPa !== undefined) dataFields.push(`pres=${signal.pressure_hPa}hPa`)
+  if (signal.wind_avg_km_h !== undefined) dataFields.push(`wind=${signal.wind_avg_km_h}km/h`)
+  if (signal.rain_mm !== undefined) dataFields.push(`rain=${signal.rain_mm}mm`)
+
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-start cursor-pointer hover:bg-gray-800 px-2 py-0.5 rounded transition-colors ${
+        isSelected ? 'bg-gray-800 ring-1 ring-purple-500' : ''
+      }`}
+    >
+      {/* Line number */}
+      <span className="text-gray-600 w-12 flex-shrink-0 select-none">
+        {String(index).padStart(4, ' ')}
+      </span>
+
+      {/* Timestamp */}
+      <span className="text-cyan-400 w-28 flex-shrink-0">
+        [{timestamp}]
+      </span>
+
+      {/* Model/Protocol */}
+      <span className="text-yellow-400 w-32 flex-shrink-0 truncate" title={signal.model}>
+        {signal.model}
+      </span>
+
+      {/* Data fields */}
+      <span className="text-gray-300 flex-1">
+        {dataFields.length > 0 ? (
+          dataFields.map((field, i) => (
+            <span key={i}>
+              {i > 0 && <span className="text-gray-600"> | </span>}
+              <span className={
+                field.startsWith('temp=') ? 'text-orange-400' :
+                field.startsWith('hum=') ? 'text-blue-400' :
+                field.startsWith('bat=LOW') ? 'text-red-400' :
+                field.startsWith('bat=') ? 'text-green-400' :
+                field.startsWith('rssi=') ? 'text-purple-400' :
+                'text-gray-300'
+              }>
+                {field}
+              </span>
+            </span>
+          ))
+        ) : (
+          <span className="text-gray-500">no data</span>
+        )}
+      </span>
     </div>
   )
 }
