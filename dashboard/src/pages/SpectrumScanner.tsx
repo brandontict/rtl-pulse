@@ -13,6 +13,12 @@ import {
   AlertTriangle,
   Power,
   Sliders,
+  Thermometer,
+  Droplets,
+  Battery,
+  ChevronDown,
+  ChevronUp,
+  Signal,
 } from 'lucide-react'
 import FrequencyTuner from '../components/FrequencyTuner'
 
@@ -56,7 +62,20 @@ interface LiveStatus {
   clients: number
 }
 
+interface DecodedSignal {
+  id: string
+  timestamp: string
+  model: string
+  device_id?: number | string
+  channel?: number
+  temperature_C?: number
+  humidity?: number
+  battery_ok?: number
+  rssi?: number
+}
+
 const API_BASE = '/api/v1'
+const DECODE_WS_URL = `ws://${window.location.hostname}:8000/ws`
 const WS_BASE = `ws://${window.location.hostname}:8000/api/v1`
 
 export default function SpectrumScanner() {
@@ -104,6 +123,14 @@ export default function SpectrumScanner() {
   const [showTuner, setShowTuner] = useState(false)
   const [tunerFreq, setTunerFreq] = useState(433.92)
 
+  // Decode panel state
+  const [showDecodePanel, setShowDecodePanel] = useState(true)
+  const [decodedSignals, setDecodedSignals] = useState<DecodedSignal[]>([])
+  const [decodeConnected, setDecodeConnected] = useState(false)
+  const decodeWsRef = useRef<WebSocket | null>(null)
+  const signalIdRef = useRef(0)
+  const maxDecodedSignals = 50
+
   useEffect(() => {
     loadPresets()
     checkLiveStatus()
@@ -116,8 +143,67 @@ export default function SpectrumScanner() {
       if (wsRef.current) {
         wsRef.current.close()
       }
+      if (decodeWsRef.current) {
+        decodeWsRef.current.close()
+      }
     }
   }, [])
+
+  // Connect to decode WebSocket when rtl433 is running
+  useEffect(() => {
+    if (rtl433Running && showDecodePanel) {
+      connectDecodeWebSocket()
+    } else if (decodeWsRef.current) {
+      decodeWsRef.current.close()
+    }
+  }, [rtl433Running, showDecodePanel])
+
+  function connectDecodeWebSocket() {
+    if (decodeWsRef.current?.readyState === WebSocket.OPEN) return
+
+    const ws = new WebSocket(DECODE_WS_URL)
+    decodeWsRef.current = ws
+
+    ws.onopen = () => {
+      setDecodeConnected(true)
+      console.log('Decode WebSocket connected')
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'reading' && data.data) {
+          const reading = data.data
+          const signal: DecodedSignal = {
+            id: `dec-${signalIdRef.current++}`,
+            timestamp: new Date().toISOString(),
+            model: reading.model || 'Unknown',
+            device_id: reading.id,
+            channel: reading.channel,
+            temperature_C: reading.temperature_C,
+            humidity: reading.humidity,
+            battery_ok: reading.battery_ok,
+            rssi: reading.rssi,
+          }
+          setDecodedSignals(prev => [signal, ...prev].slice(0, maxDecodedSignals))
+        }
+      } catch (err) {
+        console.error('Failed to parse decode message:', err)
+      }
+    }
+
+    ws.onclose = () => {
+      setDecodeConnected(false)
+      // Reconnect if rtl433 is still running
+      if (rtl433Running) {
+        setTimeout(connectDecodeWebSocket, 3000)
+      }
+    }
+
+    ws.onerror = (err) => {
+      console.error('Decode WebSocket error:', err)
+    }
+  }
 
   async function loadPresets() {
     try {
@@ -992,6 +1078,120 @@ export default function SpectrumScanner() {
                 </>
               )}
             </svg>
+          </div>
+        )}
+      </div>
+
+      {/* Live Decode Panel */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {/* Panel Header */}
+        <button
+          onClick={() => setShowDecodePanel(!showDecodePanel)}
+          className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
+        >
+          <div className="flex items-center">
+            <Signal className="h-4 w-4 mr-2 text-purple-600" />
+            <span className="font-medium text-gray-700">Live Decode</span>
+            {rtl433Running && decodeConnected && (
+              <span className="ml-2 flex items-center text-xs text-green-600">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+                Live
+              </span>
+            )}
+            {decodedSignals.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                {decodedSignals.length}
+              </span>
+            )}
+          </div>
+          {showDecodePanel ? (
+            <ChevronUp className="h-4 w-4 text-gray-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-gray-400" />
+          )}
+        </button>
+
+        {/* Panel Content */}
+        {showDecodePanel && (
+          <div className="border-t border-gray-200">
+            {!rtl433Running ? (
+              <div className="p-6 text-center text-gray-500">
+                <Radio className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <p className="font-medium">rtl_433 not running</p>
+                <p className="text-sm mt-1">
+                  {liveRunning || scanning
+                    ? 'SDR is busy with spectrum analysis'
+                    : 'Start rtl_433 to decode signals'}
+                </p>
+                {!liveRunning && !scanning && (
+                  <button
+                    onClick={startRtl433}
+                    className="mt-3 inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700"
+                  >
+                    <Power className="h-4 w-4 mr-1.5" />
+                    Start Decoder
+                  </button>
+                )}
+              </div>
+            ) : decodedSignals.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">
+                <Activity className="h-8 w-8 mx-auto mb-2 opacity-40 animate-pulse" />
+                <p>Listening for signals...</p>
+                <p className="text-sm mt-1">Decoded signals will appear here</p>
+              </div>
+            ) : (
+              <div className="max-h-[250px] overflow-y-auto">
+                <div className="divide-y divide-gray-100">
+                  {decodedSignals.map((sig) => (
+                    <div
+                      key={sig.id}
+                      className="px-4 py-2 hover:bg-gray-50 flex items-center justify-between"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900 truncate">
+                            {sig.model}
+                          </span>
+                          {sig.device_id !== undefined && (
+                            <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                              ID: {sig.device_id}
+                            </span>
+                          )}
+                          {sig.channel !== undefined && (
+                            <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">
+                              CH{sig.channel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5 text-sm">
+                          {sig.temperature_C !== undefined && (
+                            <span className="flex items-center text-orange-600">
+                              <Thermometer className="h-3 w-3 mr-0.5" />
+                              {sig.temperature_C.toFixed(1)}°C
+                            </span>
+                          )}
+                          {sig.humidity !== undefined && (
+                            <span className="flex items-center text-blue-600">
+                              <Droplets className="h-3 w-3 mr-0.5" />
+                              {sig.humidity}%
+                            </span>
+                          )}
+                          {sig.battery_ok !== undefined && (
+                            <span className={`flex items-center ${sig.battery_ok ? 'text-green-600' : 'text-red-600'}`}>
+                              <Battery className="h-3 w-3 mr-0.5" />
+                              {sig.battery_ok ? 'OK' : 'Low'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400 ml-2 whitespace-nowrap">
+                        {new Date(sig.timestamp).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
