@@ -2,7 +2,7 @@
 
 Real-time RF signal monitoring, spectrum analysis, and sensor decoding platform for RTL-SDR devices on the Realtek RTL2832 chipset. 
 
-I had bought my self a RTL2832 Dongle , Was bored and this happened !
+I had bought my self a RTL2832 Dongle , and needed an easy UI to use it . Bunch of material was out there on github, many thanks to all of the coders . I just put their code in a UI for me . Thought to share ! 
 
 #BASED on RTL_433 . Would not be possible without https://github.com/merbanan/rtl_433 .
 
